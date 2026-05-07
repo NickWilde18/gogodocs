@@ -43,6 +43,6 @@
 {{define "post-content"}}
   {{block "main-scripts" .}}{{end}}
   <script>
-    loadScript('/static/frontend/unit/unit.js')
+    loadScript((document.documentElement.dataset.basePath || "") + "/static/frontend/unit/unit.js")
   </script>
 {{end}}

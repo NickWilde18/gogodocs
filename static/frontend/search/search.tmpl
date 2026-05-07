@@ -18,7 +18,7 @@
 
 {{define "post-content"}}
   <script>
-    loadScript('/static/frontend/search/search.js')
+    loadScript((document.documentElement.dataset.basePath || "") + "/static/frontend/search/search.js")
   </script>
 {{end}}
 

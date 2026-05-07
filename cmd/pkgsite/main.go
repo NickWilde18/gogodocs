@@ -62,6 +62,7 @@ import (
 
 	"golang.org/x/pkgsite/cmd/internal/pkgsite"
 	"golang.org/x/pkgsite/internal/browser"
+	"golang.org/x/pkgsite/internal/frontend/versions"
 	"golang.org/x/pkgsite/internal/godoc"
 	"golang.org/x/pkgsite/internal/log"
 	"golang.org/x/pkgsite/internal/middleware/timeout"
@@ -112,6 +113,13 @@ func main() {
 	// 全局开关——godoc.DocPackage 读包级 var 决定是否传 doc.AllDecls。
 	// 单进程 pkgsite 一种行为，没必要加到 ServerConfig 里再透传一层。
 	godoc.IncludeUnexported = *showUnexported
+
+	// versions 包级 BasePath——pkgsite 内部 ConstructUnitURL 是所有 unit /
+	// package / module 详情页链接的核心 URL builder（subdir 列表、search
+	// 结果、breadcrumb 都走它），它生成的绝对 URL 必须带 base path 前缀，
+	// 否则点子目录会跳出 base path 外 404。同 godoc.IncludeUnexported 模式
+	// 用包级 var 而非加 ServerConfig 字段层层透传。
+	versions.BasePath = *basePath
 
 	serverCfg.UseLocalStdlib = true
 	serverCfg.GoRepoPath = *goRepoPath

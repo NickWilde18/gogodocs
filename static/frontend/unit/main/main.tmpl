@@ -82,6 +82,6 @@
   <div class="js-canonicalURLPath" data-canonical-url-path="{{.CanonicalURLPath}}" hidden></div>
   <div class="js-playgroundVars" data-modulepath="{{.Unit.ModulePath}}" data-version="{{.Unit.Version}}" hidden></div>
   <script>
-    loadScript('/static/frontend/unit/main/main.js')
+    loadScript((document.documentElement.dataset.basePath || "") + "/static/frontend/unit/main/main.js")
   </script>
 {{end}}
