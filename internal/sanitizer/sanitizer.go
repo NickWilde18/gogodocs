@@ -351,6 +351,11 @@ var allowAttrs = []allowAttr{
 	{"h4", "class", spaceSepTokens},
 	{"h5", "class", spaceSepTokens},
 	{"h6", "class", spaceSepTokens},
+	// fork：保留 fenced code block 的语言 class（rsc.io/markdown 渲染成
+	// `<pre><code class="language-X">`），客户端再用这个 class 选择器渲 mermaid /
+	// 高亮。限制成 `language-<word>` 一种形态防止任意 class 注入。
+	{"code", "class", langClass},
+	{"pre", "class", langClass},
 }
 
 // roundtripAttrs is a map from attribute keys which should be checked
@@ -378,6 +383,11 @@ var valign = re(`(?i)^(baseline|bottom|middle|top)$`)
 var para = re(`^[\p{L}\p{N}\s\-_',\[\]!\./\\\(\)]*$`)
 
 var spaceSepTokens = re(`^([\s\p{L}\p{N}_-]+)$`)
+
+// langClass 匹配 `<pre><code class="language-X">` fenced code block 的 class 形式。
+// rsc.io/markdown 输出此格式（参考 markdown.CodeBlock.PrintHTML）；mermaid /
+// 客户端语法高亮通过这个 class 选择目标。
+var langClass = re(`^language-[\w-]+$`)
 
 // flexiblewidth allows non-valid align values to reduce diffs
 // with the old pkgsite sanitization code.

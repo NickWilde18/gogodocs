@@ -62,6 +62,7 @@ import (
 
 	"golang.org/x/pkgsite/cmd/internal/pkgsite"
 	"golang.org/x/pkgsite/internal/browser"
+	"golang.org/x/pkgsite/internal/godoc"
 	"golang.org/x/pkgsite/internal/log"
 	"golang.org/x/pkgsite/internal/middleware/timeout"
 	"golang.org/x/pkgsite/internal/proxy"
@@ -79,6 +80,9 @@ var (
 	// 站点入口 http://host/gogodocs/）。空字符串 = 默认挂根路径，跟上游一致。
 	// fork 加入这个 flag 是为了让 pkgsite 能跟主网关共用域名（反代而非 subdomain）。
 	basePath = flag.String("base-path", "", "URL prefix to mount the site under (e.g. /gogodocs). Must start with / and not end with /.")
+	// showUnexported：godoc 显示 unexported 符号（doc.AllDecls 模式）。fork
+	// 内网部署常见诉求——自家代码完整展示比 public-only 视图更有用。
+	showUnexported = flag.Bool("show-unexported", false, "Render documentation including unexported declarations (doc.AllDecls mode).")
 	// other flags are bound to ServerConfig below
 )
 
@@ -104,6 +108,10 @@ func main() {
 	if err := validateBasePath(*basePath); err != nil {
 		dief("%v", err)
 	}
+
+	// 全局开关——godoc.DocPackage 读包级 var 决定是否传 doc.AllDecls。
+	// 单进程 pkgsite 一种行为，没必要加到 ServerConfig 里再透传一层。
+	godoc.IncludeUnexported = *showUnexported
 
 	serverCfg.UseLocalStdlib = true
 	serverCfg.GoRepoPath = *goRepoPath

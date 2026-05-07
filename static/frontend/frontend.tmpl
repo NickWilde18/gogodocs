@@ -59,6 +59,19 @@
       loadScript(__basePath + "/third_party/dialog-polyfill/dialog-polyfill.js", false)
       loadScript(__basePath + "/static/frontend/frontend.js");
     </script>
+    <!-- fork: fenced mermaid code-block lazy render. Only loads mermaid
+         (~500KB) when the page actually contains a code.language-mermaid
+         element; README / godoc pages without diagrams pay zero cost.
+         Source via jsdelivr CDN; for offline / strict-CSP intranet
+         deploys, swap with a local copy under third_party/mermaid. -->
+    <script type="module">
+      if (document.querySelector('code.language-mermaid')) {
+        import('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs').then(({ default: mermaid }) => {
+          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+          mermaid.run({ querySelector: 'code.language-mermaid' });
+        }).catch(err => console.error('mermaid load failed:', err));
+      }
+    </script>
     {{template "header" .}}
     {{template "main" .}}
     {{template "footer" .}}

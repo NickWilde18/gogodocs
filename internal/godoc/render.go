@@ -42,6 +42,18 @@ const (
 // It is a variable for testing.
 var MaxDocumentationHTML = 40 * megabyte
 
+// IncludeUnexported 是 fork 加的全局开关。
+//
+// 默认 false 跟上游一致——godoc 渲染只保留 exported 符号（pkg.go.dev 行为）。
+// pkgsite 的 -show-unexported flag 设为 true 时所有包都按 doc.AllDecls 模式
+// 提取，未导出 type/func/const/var 也展示。这是 fork 私网部署的常见诉求：
+// 对自家代码 godoc 完整展示比 public-only 视图更有用。
+//
+// 用包级 var 而非 per-Package 字段——pkgsite 单进程整站统一一种行为，
+// 简化由 flag → server config → 这里 一条链；无需在 RenderOptions 里多一个字段
+// 透传到 [DocPackage] 调用方（caller 链很深）。
+var IncludeUnexported bool
+
 // DocInfo returns information extracted from the package's documentation.
 // This destroys p's AST; do not call any methods of p after it returns.
 func (p *Package) DocInfo(ctx context.Context, innerPath string, sourceInfo *source.Info, modInfo *ModuleInfo) (
@@ -112,7 +124,7 @@ func (p *Package) DocPackage(innerPath string, modInfo *ModuleInfo) (_ *doc.Pack
 
 	// Compute package documentation.
 	var m doc.Mode
-	if noFiltering {
+	if noFiltering || IncludeUnexported {
 		m |= doc.AllDecls
 	}
 	var allGoFiles []*ast.File
