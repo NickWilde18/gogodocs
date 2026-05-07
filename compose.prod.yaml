@@ -78,12 +78,9 @@ services:
         condition: service_healthy
 
   worker:
-    build:
-      context: ..
-      dockerfile: deploy/prod/Dockerfile
-      target: worker
-      args:
-        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
+    image: ${PKGSITEX_IMAGE:-nickwilde18/pkgsitex:fork-main}
+    pull_policy: ${PKGSITEX_PULL_POLICY:-always}
+    entrypoint: ["/usr/local/bin/worker"]
     environment:
       GO_DISCOVERY_DATABASE_HOST: postgres
       GO_DISCOVERY_DATABASE_USER: pkgsitex
@@ -109,12 +106,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ..
-      dockerfile: deploy/prod/Dockerfile
-      target: frontend
-      args:
-        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
+    image: ${PKGSITEX_IMAGE:-nickwilde18/pkgsitex:fork-main}
+    pull_policy: ${PKGSITEX_PULL_POLICY:-always}
+    entrypoint: ["/usr/local/bin/frontend"]
     environment:
       GO_DISCOVERY_DATABASE_HOST: postgres
       GO_DISCOVERY_DATABASE_USER: pkgsitex
@@ -148,13 +142,9 @@ services:
   #
   # 用同一镜像不同 mode 跑两次。
   netrc-writer:
-    build:
-      context: ..
-      dockerfile: deploy/prod/Dockerfile
-      target: init
-      args:
-        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
-    image: pkgsitex-init:local
+    image: ${PKGSITEX_IMAGE:-nickwilde18/pkgsitex:fork-main}
+    pull_policy: ${PKGSITEX_PULL_POLICY:-always}
+    entrypoint: ["/usr/local/bin/pkgsitex-init"]
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN}
     volumes:
@@ -165,7 +155,9 @@ services:
       - "--mode=netrc-only"
 
   init:
-    image: pkgsitex-init:local
+    image: ${PKGSITEX_IMAGE:-nickwilde18/pkgsitex:fork-main}
+    pull_policy: ${PKGSITEX_PULL_POLICY:-always}
+    entrypoint: ["/usr/local/bin/pkgsitex-init"]
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN}
     volumes:

@@ -90,18 +90,39 @@ open http://localhost:8089/pkgsitex/
 - **multi-repo command line**：直接 list 多个 module path
 - **trailing slash 死循环修**：`internal/frontend/details.go` 在 base path 模式下区分"挂根"和"base path 自身"
 
-## Prod 部署（待做）
+## Prod 部署
 
-cmd/pkgsite + 文件 mount 是 dev / 个人模式，prod 走另一套：
+Prod 模式跟 dev 不同——跟 pkg.go.dev 自身架构一致 4 件套：
 
-- **cmd/frontend + cmd/worker + Postgres** 三件套（pkg.go.dev 自身架构）
-- worker 异步拉私有 GitHub repo 入 DB（需配 GitHub PAT + git credential helper）
-- frontend 从 DB 读 + 缓存命中
-- 配置文件驱动 repo list + token
-- license 放行 patch（让 `all rights reserved` / unknown / proprietary license 也能渲）
-- git tag 多版本切换 UI
+- **postgres**：缓存 module 索引 / 包文档
+- **athens**：GOPROXY 缓存 + 用 GitHub PAT 拉私有 repo
+- **worker**：异步 fetch module 入 DB
+- **frontend**：从 DB 读渲染（端口 8089）
 
-整套在 `docs/PROD_DEPLOY.md` 待写。
+镜像已发布到 docker.io [`nickwilde18/pkgsitex:fork-main`](https://hub.docker.com/r/nickwilde18/pkgsitex)（GitHub Actions 自动 push）。用户不需要 build——拉 image 即用。
+
+```sh
+git clone https://github.com/NickWilde18/pkgsitex.git
+cd pkgsitex
+git checkout fork/main
+
+# 1) 配 PAT
+cp deploy/prod/.env.example deploy/prod/.env
+$EDITOR deploy/prod/.env             # GITHUB_TOKEN=ghp_xxx
+
+# 2) 编辑要监控的 module 列表（内置 5 个 CUHKSZ 内部 repo 示例）
+$EDITOR deploy/prod/config.yaml
+
+# 3) 起 stack（自动拉镜像）
+docker compose -f compose.prod.yaml --env-file deploy/prod/.env up -d
+
+# 4) 浏览
+open http://localhost:8089/pkgsitex/
+```
+
+完整运维（加 / 删 module、周期 cron 刷新、故障排查）：[`deploy/prod/README.md`](deploy/prod/README.md)。
+
+支持 multi-version（git tag 切换）、license permissive（私有 / proprietary 也渲）、配置文件驱动。
 
 ## 维护策略
 

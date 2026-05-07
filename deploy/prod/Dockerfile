@@ -1,10 +1,12 @@
-# pkgsitex prod 三进程镜像（worker / frontend / init）共享 base，build 一次
-# 输出三种 target，docker-compose 用 build.target 选。
+# pkgsitex prod 单 image 三 entrypoint（worker / frontend / init）。
 #
-# 不同于 cmd/pkgsite local mode 的 Dockerfile（仓库根 Dockerfile）：那个跑
-# fetchdatasource 直读文件系统，不走 DB 不走 GOPROXY；本镜像跑 cmd/worker
-# + cmd/frontend，需要 PostgreSQL + athens GOPROXY，是 pkg.go.dev 自身的
-# prod 架构。
+# 单 image 设计：减少 docker.io push 频次和拉取流量——用户拉一次就拿到三个
+# 二进制；compose 里通过 entrypoint: 选择跑哪个。三种角色共享一份 ca-certs
+# 和 git，本来分开 image 也是同 base，单 image 没浪费。
+#
+# 跟仓库根 `Dockerfile`（cmd/pkgsite local mode）不同：那个跑 fetchdatasource
+# 直读文件系统，不走 DB 不走 GOPROXY；本镜像跑 cmd/worker / cmd/frontend，
+# 需要 PostgreSQL + athens GOPROXY，跟 pkg.go.dev 自身架构一致。
 
 FROM golang:1.24 AS builder
 WORKDIR /src
@@ -19,32 +21,26 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /bin/worker ./cmd/worke
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /bin/frontend ./cmd/frontend
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /bin/pkgsitex-init ./cmd/pkgsitex-init
 
-# 共享 base：ca-certificates 给 HTTPS / git；git 给 cmd/pkgsitex-init 跑
-# ls-remote 拿 tag 列表（worker / frontend 不直接调 git，但镜像统一一份）
-FROM debian:bookworm-slim AS base
+FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/NickWilde18/pkgsitex"
+LABEL org.opencontainers.image.description="Self-hosted pkgsite fork (worker/frontend/init in one image)"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates git && \
     rm -rf /var/lib/apt/lists/*
 
-# === target: worker（跑 cmd/worker 拉 module 入 DB）===
-FROM base AS worker
 COPY --from=builder /bin/worker /usr/local/bin/worker
-COPY --from=builder /src/static /app/static
-COPY --from=builder /src/migrations /app/migrations
-WORKDIR /app
-EXPOSE 8000
-ENTRYPOINT ["worker"]
-
-# === target: frontend（跑 cmd/frontend 渲染 godoc）===
-FROM base AS frontend
 COPY --from=builder /bin/frontend /usr/local/bin/frontend
+COPY --from=builder /bin/pkgsitex-init /usr/local/bin/pkgsitex-init
+
+# 静态资源 / migrations / third_party 都内置——cmd/worker / cmd/frontend 都
+# 通过 -static / -third_party flag 指 /app 下，cmd/worker 内部跑 migrations
+# 时也能找到 /app/migrations
 COPY --from=builder /src/static /app/static
 COPY --from=builder /src/third_party /app/third_party
+COPY --from=builder /src/migrations /app/migrations
 WORKDIR /app
-EXPOSE 8080
-ENTRYPOINT ["frontend"]
 
-# === target: init（跑 cmd/pkgsitex-init 写 netrc + enqueue 全 module）===
-FROM base AS init
-COPY --from=builder /bin/pkgsitex-init /usr/local/bin/pkgsitex-init
-ENTRYPOINT ["pkgsitex-init"]
+# 默认 entrypoint = frontend（用户最常用）；compose 里其他 service 用
+# entrypoint: ["/usr/local/bin/worker"] / ["/usr/local/bin/pkgsitex-init"] 覆盖
+EXPOSE 8000 8080
+ENTRYPOINT ["/usr/local/bin/frontend"]

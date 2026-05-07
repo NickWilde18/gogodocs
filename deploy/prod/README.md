@@ -4,6 +4,8 @@
 
 跟仓库根的 `compose.yaml`（cmd/pkgsite local mode，单进程，文件 mount）不同——本目录是 prod 模式，跟 pkg.go.dev 自身架构一致。
 
+镜像 `nickwilde18/pkgsitex:fork-main` 由 GitHub Actions 自动 build & push 到 docker.io（推 `fork/main` 分支触发）；用户拉 image 即用，不需要本地 build。
+
 ## 启动步骤
 
 ```sh
@@ -16,7 +18,7 @@ $EDITOR deploy/prod/.env             # GITHUB_TOKEN=ghp_xxx
 # 2) 配要监控的 module 列表
 $EDITOR deploy/prod/config.yaml      # modules: [...]
 
-# 3) 起 stack（首次 build ~10 分钟下 image + 编译）
+# 3) 起 stack（首次 docker pull 镜像 ~30 秒）
 docker compose -f compose.prod.yaml --env-file deploy/prod/.env up -d
 
 # 4) 看日志确认 worker 在拉 module
@@ -24,6 +26,20 @@ docker compose -f compose.prod.yaml logs -f worker
 
 # 5) 浏览
 open http://localhost:8089/pkgsitex/
+```
+
+## 切镜像版本 / 用本地 build
+
+`compose.prod.yaml` 默认用 `nickwilde18/pkgsitex:fork-main`，可通过 env 切：
+
+```sh
+# 钉死某个 git sha（不可变 tag）
+PKGSITEX_IMAGE=nickwilde18/pkgsitex:abc1234 docker compose -f compose.prod.yaml ... up -d
+
+# 用本地刚 build 的（开发 fork patch 时用）
+docker build -t pkgsitex:local -f deploy/prod/Dockerfile .
+PKGSITEX_IMAGE=pkgsitex:local PKGSITEX_PULL_POLICY=never \
+    docker compose -f compose.prod.yaml ... up -d
 ```
 
 ## 运维操作
