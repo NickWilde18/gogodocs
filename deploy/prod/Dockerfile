@@ -8,7 +8,7 @@
 # 直读文件系统，不走 DB 不走 GOPROXY；本镜像跑 cmd/worker / cmd/frontend，
 # 需要 PostgreSQL + athens GOPROXY，跟 pkg.go.dev 自身架构一致。
 
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 WORKDIR /src
 
 COPY go.mod go.sum ./

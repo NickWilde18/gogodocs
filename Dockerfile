@@ -11,7 +11,7 @@
 # GOPROXY 默认走 goproxy.cn 应对国内网络环境；改 build arg / env 可换走
 # 公司内网 Athens 之类。
 
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 WORKDIR /src
 
 # go.mod / go.sum 单独 COPY 让 dep 下载层可缓存（跟随 source 改动）
@@ -23,7 +23,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /pkgsite ./cmd/pkgsite
 
-FROM golang:1.24
+FROM golang:1.25
 LABEL org.opencontainers.image.source="https://github.com/NickWilde18/pkgsitex"
 LABEL org.opencontainers.image.description="Self-hosted godoc browser (pkgsite fork) with base-path support"
 
