@@ -286,7 +286,7 @@ func renderInfo(ctx context.Context, fset *token.FileSet, p *doc.Package, opt Re
 			if opt.BuildContext.GOOS != "" && opt.BuildContext.GOOS != "all" {
 				search = "?GOOS=" + opt.BuildContext.GOOS
 			}
-			// basePath 在站点挂子路径时非空（如 "/gogodocs"）——godoc 渲染的
+			// basePath 在站点挂子路径时非空（如 "/pkgsitex"）——godoc 渲染的
 			// cross-reference 链接（如 std lib `<a href="/builtin">`）拼上前缀
 			// 才能在反代环境正确路由。
 			return basePath + "/" + versionedPath + search

@@ -77,10 +77,10 @@ var (
 	goRepoPath = flag.String("gorepo", "", "path to Go repo on local filesystem")
 	useProxy   = flag.Bool("proxy", false, "fetch from GOPROXY if not found locally")
 	openFlag   = flag.Bool("open", false, "open a browser window to the server's address")
-	// basePath：把整个站点挂在 URL 子路径下（如 -base-path=/gogodocs，
-	// 站点入口 http://host/gogodocs/）。空字符串 = 默认挂根路径，跟上游一致。
+	// basePath：把整个站点挂在 URL 子路径下（如 -base-path=/pkgsitex，
+	// 站点入口 http://host/pkgsitex/）。空字符串 = 默认挂根路径，跟上游一致。
 	// fork 加入这个 flag 是为了让 pkgsite 能跟主网关共用域名（反代而非 subdomain）。
-	basePath = flag.String("base-path", "", "URL prefix to mount the site under (e.g. /gogodocs). Must start with / and not end with /.")
+	basePath = flag.String("base-path", "", "URL prefix to mount the site under (e.g. /pkgsitex). Must start with / and not end with /.")
 	// showUnexported：godoc 显示 unexported 符号（doc.AllDecls 模式）。fork
 	// 内网部署常见诉求——自家代码完整展示比 public-only 视图更有用。
 	showUnexported = flag.Bool("show-unexported", false, "Render documentation including unexported declarations (doc.AllDecls mode).")

@@ -8,8 +8,8 @@
 /**
  * 站点 URL 子路径前缀，从 <html data-base-path="..."> 读出。
  *
- * fork 用 -base-path=/gogodocs 启动时，server 端模板把 attribute 写成
- * "/gogodocs"；上游公网 pkg.go.dev 默认挂根，attribute 为空字符串。
+ * fork 用 -base-path=/pkgsitex 启动时，server 端模板把 attribute 写成
+ * "/pkgsitex"；上游公网 pkg.go.dev 默认挂根，attribute 为空字符串。
  *
  * 在 <head> 之外的脚本初始化阶段调用都安全——documentElement 一定存在。
  */
@@ -24,8 +24,8 @@ export function getBasePath(): string {
  * 的地方。非绝对路径（不以 / 开头）原样返回——caller 自己保证语义。
  *
  * 例：
- *   abs('/play/share')       // → '/gogodocs/play/share' 或 '/play/share'
- *   abs('/static/foo.svg')   // → '/gogodocs/static/foo.svg' 或 '/static/foo.svg'
+ *   abs('/play/share')       // → '/pkgsitex/play/share' 或 '/play/share'
+ *   abs('/static/foo.svg')   // → '/pkgsitex/static/foo.svg' 或 '/static/foo.svg'
  *   abs('relative/x')        // → 'relative/x'（不动）
  */
 export function abs(p: string): string {

@@ -44,8 +44,8 @@ func stripScheme(url string) string {
 // funcsWithBasePath 在内置 templateFuncs 之上叠两个 base-path 助手：
 //
 //   - `{{abs "/static/foo.svg"}}` → 静态绝对路径前置 BasePath，
-//     站点挂根时输出 `/static/foo.svg`，挂 -base-path=/gogodocs 时输出
-//     `/gogodocs/static/foo.svg`。必须以 / 开头；否则原样（让作者改时一目了然）。
+//     站点挂根时输出 `/static/foo.svg`，挂 -base-path=/pkgsitex 时输出
+//     `/pkgsitex/static/foo.svg`。必须以 / 开头；否则原样（让作者改时一目了然）。
 //     返回 [safehtml.TrustedResourceURL]——safehtml/template 不会校验，允许
 //     模板里跟 `?version={{.AppVersionLabel}}` 等动态 query 拼接（普通
 //     string return 会被 safehtml 拒绝，认为 ?version= 不是合法 URL prefix）。
@@ -104,7 +104,7 @@ func funcsWithBasePath(basePath string) template.FuncMap {
 // ParsePageTemplates parses html templates contained in the given filesystem in
 // order to generate a map of Name->*template.Template.
 //
-// basePath 形如 "/gogodocs" 或空字符串。空 = 站点挂根（pkg.go.dev 行为）。
+// basePath 形如 "/pkgsitex" 或空字符串。空 = 站点挂根（pkg.go.dev 行为）。
 // 模板里通过 `{{abs "/static/foo.svg"}}` 输出带 prefix 的绝对 URL。
 //
 // Separate templates are used so that certain contextual functions (e.g.

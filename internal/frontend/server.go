@@ -63,7 +63,7 @@ type Server struct {
 	instanceID            string
 	HTTPClient            *http.Client
 	recordCodeWikiMetrics RecordClickFunc
-	// basePath：URL 前缀（如 "/gogodocs"），空字符串 = 默认挂根。
+	// basePath：URL 前缀（如 "/pkgsitex"），空字符串 = 默认挂根。
 	// 由调用方通过 ServerConfig.BasePath 设置，并贯穿 mux pattern / StripPrefix /
 	// template "abs" 助手 / 内部 redirect / dochtml 链接拼接，使整站能整体迁移到子路径。
 	// 关于不变式：basePath 要么空、要么形如 "/foo"——尾部不带斜杠（拼 mux 时双斜杠会失配）。
@@ -106,7 +106,7 @@ type ServerConfig struct {
 	VulndbClient          *vuln.Client
 	HTTPClient            *http.Client
 	RecordCodeWikiMetrics RecordClickFunc
-	// BasePath：URL 子路径前缀（如 "/gogodocs"），空 = 挂根。详见 [Server.basePath]。
+	// BasePath：URL 子路径前缀（如 "/pkgsitex"），空 = 挂根。详见 [Server.basePath]。
 	BasePath string
 }
 
@@ -193,7 +193,7 @@ type Cacher interface {
 // 让 file server 能剥到正确的剩余 path。
 func (s *Server) Install(handle func(string, http.Handler), cacher Cacher, authValues []string) {
 	// shadow 入参 handle：所有 handle("GET /static/", ...) 自动变成
-	// realHandle("GET /gogodocs/static/", ...)，保持原代码零改动。
+	// realHandle("GET /pkgsitex/static/", ...)，保持原代码零改动。
 	// installDebugHandlers(handle) 透传时也用包装版本——_debug/pprof 等
 	// 调试端点同样落在 base-path 下。
 	realHandle := handle

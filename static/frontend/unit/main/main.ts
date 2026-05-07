@@ -209,7 +209,7 @@ document.querySelectorAll('.js-buildContextSelect').forEach(el => {
   btn.style.fontSize = '0.875rem';
   btn.style.verticalAlign = 'middle';
 
-  const STORE_KEY = 'gogodocs:showUnexported';
+  const STORE_KEY = 'pkgsitex:showUnexported';
   const apply = (show: boolean) => {
     document.body.classList.toggle('show-unexported', show);
     btn.textContent = show ? 'Hide unexported' : 'Show unexported';

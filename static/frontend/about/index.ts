@@ -11,7 +11,7 @@ import { abs } from '../../shared/base-path/base-path';
  * Left Navigation.
  */
 export const initJumpLinks = async function () {
-  // pathname 在挂 -base-path=/gogodocs 时是 "/gogodocs/about"——比较列表也得带前缀
+  // pathname 在挂 -base-path=/pkgsitex 时是 "/pkgsitex/about"——比较列表也得带前缀
   const pagesWithJumpLinks = [abs('/about')];
   if (!pagesWithJumpLinks.includes(window.location.pathname)) {
     // stop the file from doing anything else if the page doesn't have jumplinks

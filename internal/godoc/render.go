@@ -58,7 +58,7 @@ var IncludeUnexported bool
 //
 // 用途：cmd/pkgsite local mode 下，[Renderer] 生成 view source / file link 时
 // source.Info 走的是 `/files/{path}` 模板，不带 fork 站点子路径。挂
-// -base-path=/gogodocs 时这些链接得变成 `/gogodocs/files/{path}` 才能正确路由
+// -base-path=/pkgsitex 时这些链接得变成 `/pkgsitex/files/{path}` 才能正确路由
 // 到 file mux。在 [renderOptions] 的 fileLinkFunc / sourceLinkFunc 里识别 local
 // 模式（URL 以 "/files/" 起头）并 prefix。
 var BasePath string

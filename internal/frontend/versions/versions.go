@@ -430,7 +430,7 @@ func absoluteTime(date time.Time) string {
 	return date.In(time.UTC).Format("Jan _2, 2006")
 }
 
-// BasePath 是 fork 加的包级 URL 前缀（如 "/gogodocs"），由 cmd/pkgsite/main.go
+// BasePath 是 fork 加的包级 URL 前缀（如 "/pkgsitex"），由 cmd/pkgsite/main.go
 // 在 -base-path flag 处设置。空 = 默认挂根，跟上游零差异。
 //
 // [ConstructUnitURL] 是 pkgsite 内部所有 unit / package / module 详情页链接

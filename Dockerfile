@@ -24,7 +24,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /pkgsite ./cmd/pkgsite
 
 FROM golang:1.24
-LABEL org.opencontainers.image.source="https://github.com/NickWilde18/gogodocs"
+LABEL org.opencontainers.image.source="https://github.com/NickWilde18/pkgsitex"
 LABEL org.opencontainers.image.description="Self-hosted godoc browser (pkgsite fork) with base-path support"
 
 COPY --from=builder /pkgsite /usr/local/bin/pkgsite

@@ -44,7 +44,7 @@ type ServerConfig struct {
 	GoDocMode             bool
 	RecordCodeWikiMetrics frontend.RecordClickFunc
 
-	// BasePath：URL 前缀（如 "/gogodocs"）让站点挂在子路径下。空 = 挂根。
+	// BasePath：URL 前缀（如 "/pkgsitex"）让站点挂在子路径下。空 = 挂根。
 	// 详见 cmd/pkgsite/main.go 的 -base-path flag。
 	BasePath string
 

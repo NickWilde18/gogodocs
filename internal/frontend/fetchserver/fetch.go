@@ -89,7 +89,7 @@ var (
 type FetchServer struct {
 	Queue                queue.Queue
 	TaskIDChangeInterval time.Duration
-	// BasePath：站点 URL 子路径前缀（如 "/gogodocs"）。空 = 挂根。
+	// BasePath：站点 URL 子路径前缀（如 "/pkgsitex"）。空 = 挂根。
 	// 用于 [ServePathNotFoundPage] 内部 http.Redirect 拼绝对 URL，否则
 	// /search?q=... 之类的重定向会跳到 reverse proxy 之外。
 	BasePath string
