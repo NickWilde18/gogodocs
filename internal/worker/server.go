@@ -827,6 +827,10 @@ func parseTemplate(cfg *config.Config, staticPath template.TrustedSource, filena
 			return t1.Sub(t2).Round(time.Second)
 		},
 		"logURL": logURL,
+		// fork 改 base-path 时把 worker index.tmpl 里 hardcoded URL prefix
+		// 全替成 {{abs ...}}，worker 端 UI 只给运维看不走前端反代——abs 直接
+		// identity 返原值即可，省 -base-path flag 重复连通到 cmd/worker。
+		"abs": func(p string) string { return p },
 	}).ParseFilesFromTrustedSources(templatePath)
 }
 
