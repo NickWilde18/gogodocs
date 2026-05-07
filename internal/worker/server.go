@@ -93,7 +93,7 @@ func NewServer(cfg *config.Config, scfg ServerConfig) (_ *Server, err error) {
 	}
 
 	tfs := template.TrustedFSFromTrustedSource(scfg.StaticPath)
-	dochtml.LoadTemplates(tfs)
+	dochtml.LoadTemplates(tfs, "")
 	var c *cache.Cache
 	if scfg.RedisCacheClient != nil {
 		c = cache.New(scfg.RedisCacheClient)

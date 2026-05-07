@@ -35,7 +35,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	dochtml.LoadTemplates(template.TrustedFSFromTrustedSource(template.TrustedSourceFromConstant("../../static")))
+	dochtml.LoadTemplates(template.TrustedFSFromTrustedSource(template.TrustedSourceFromConstant("../../static")), "")
 	defaultTestModules = proxytest.LoadTestModules("../proxy/testdata")
 	licenses.OmitExceptions = true
 	os.Exit(m.Run())

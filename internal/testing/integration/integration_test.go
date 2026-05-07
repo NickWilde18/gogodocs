@@ -32,7 +32,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	dochtml.LoadTemplates(template.TrustedFSFromTrustedSource(template.TrustedSourceFromConstant("../../../static")))
+	dochtml.LoadTemplates(template.TrustedFSFromTrustedSource(template.TrustedSourceFromConstant("../../../static")), "")
 	testModules = proxytest.LoadTestModules("../../proxy/testdata")
 	postgres.RunDBTests("discovery_integration_test", m, &testDB)
 }
