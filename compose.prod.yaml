@@ -1,0 +1,186 @@
+# pkgsitex prod 部署 stack —— 4 件套 + 一次性 init / migrate：
+#
+#   postgres:    pkgsite schema 缓存 module 索引（disk volume 持久）
+#   athens:      GOPROXY 缓存层 + 用 PAT 拉私有 GitHub repo（disk 持久）
+#   worker:      周期 fetch module → 入 postgres
+#   frontend:    用户浏览的 web，base-path / show-unexported / license
+#                permissive 全开，端口 8089 暴露
+#   migrate:     一次性，启动时跑 migrations/ 下 SQL up（基于 migrate/migrate）
+#   init:        一次性，写 athens netrc + 用 PAT git ls-remote 拿 tag +
+#                调 worker /fetch enqueue 各 module 各版本
+#
+# 启动：
+#     cp deploy/prod/.env.example deploy/prod/.env
+#     vi deploy/prod/.env                     # 填 GITHUB_TOKEN
+#     vi deploy/prod/config.yaml              # 填要监控的 module 列表
+#     docker compose -f compose.prod.yaml --env-file deploy/prod/.env up -d
+#     open http://localhost:8089/pkgsitex/
+#
+# 加新 module：编辑 deploy/prod/config.yaml；触发刷新：
+#     docker compose -f compose.prod.yaml --env-file deploy/prod/.env run --rm init --mode=refresh
+#
+# Prod (k8s) 部署：以本 yaml 为底稿改写 helm chart，DB / athens 用 cluster 内
+# 共享实例，init 改成 CronJob 周期 refresh。
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pkgsitex
+      POSTGRES_PASSWORD: pkgsitex
+      POSTGRES_DB: discovery_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pkgsitex -d discovery_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  athens:
+    image: gomods/athens:v0.15.0
+    environment:
+      ATHENS_STORAGE_TYPE: disk
+      ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
+      ATHENS_DOWNLOAD_MODE: sync
+      ATHENS_NETRC_PATH: /etc/athens/.netrc
+      ATHENS_LOG_LEVEL: info
+      # athens 内部 git clone 时通过 .netrc 走 PAT 认证拉私有 repo；
+      # GOPROXY=direct 让 athens 直接 git 拉而不是再代理给上游
+      GOPROXY: direct
+    volumes:
+      - athens-data:/var/lib/athens
+      - athens-config:/etc/athens
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      init:
+        # 等 init 写好 netrc 再起 athens
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    volumes:
+      - ../migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://pkgsitex:pkgsitex@postgres:5432/discovery_db?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/prod/Dockerfile
+      target: worker
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
+    environment:
+      GO_DISCOVERY_DATABASE_HOST: postgres
+      GO_DISCOVERY_DATABASE_USER: pkgsitex
+      GO_DISCOVERY_DATABASE_PASSWORD: pkgsitex
+      GO_DISCOVERY_DATABASE_NAME: discovery_db
+      GO_MODULE_PROXY_URL: http://athens:3000
+      PORT: "8000"
+    command:
+      - "-queue=postgres"
+      - "-static=/app/static"
+    expose:
+      - "8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      athens:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/prod/Dockerfile
+      target: frontend
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
+    environment:
+      GO_DISCOVERY_DATABASE_HOST: postgres
+      GO_DISCOVERY_DATABASE_USER: pkgsitex
+      GO_DISCOVERY_DATABASE_PASSWORD: pkgsitex
+      GO_DISCOVERY_DATABASE_NAME: discovery_db
+      PORT: "8080"
+      # fork 加的：base-path / show-unexported / license permissive 都通过 env
+      # 或 cmd flag——cmd/frontend 暂未支持这些 flag，需要 fork patch 让它读
+      # 同 cmd/pkgsite 的 flag。L2 暂走 cmd/pkgsite 行为兼容（待 L4-bis 补
+      # cmd/frontend flag 支持，见 docs/PROD_DEPLOY.md TODO）。
+      PKGSITEX_BASE_PATH: "/pkgsitex"
+      PKGSITEX_SHOW_UNEXPORTED: "true"
+      PKGSITEX_LICENSE_PERMISSIVE: "true"
+    command:
+      - "-static=/app/static"
+      - "-third_party=/app/third_party"
+    ports:
+      - "8089:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # init 一次性跑：写 athens netrc + 等 worker 起来 + enqueue 全 module。
+  # athens 依赖 init（要 netrc 文件），所以 init 要先于 athens 跑——但
+  # init 又要等 worker /healthcheck —— worker 又依赖 athens —— 循环依赖。
+  #
+  # 解法：分两阶段——
+  #   阶段 1（service netrc-writer）：仅写 netrc 然后退出，依赖 0。athens 等它
+  #   阶段 2（service init）：等 worker 起来后 enqueue。worker 依赖 athens
+  #
+  # 用同一镜像不同 mode 跑两次。
+  netrc-writer:
+    build:
+      context: ..
+      dockerfile: deploy/prod/Dockerfile
+      target: init
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct}
+    image: pkgsitex-init:local
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    volumes:
+      - ./deploy/prod/config.yaml:/etc/pkgsitex/config.yaml:ro
+      - athens-config:/etc/athens
+    command:
+      - "--config=/etc/pkgsitex/config.yaml"
+      - "--mode=netrc-only"
+
+  init:
+    image: pkgsitex-init:local
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    volumes:
+      - ./deploy/prod/config.yaml:/etc/pkgsitex/config.yaml:ro
+      - athens-config:/etc/athens
+    command:
+      - "--config=/etc/pkgsitex/config.yaml"
+      - "--mode=init"
+    depends_on:
+      netrc-writer:
+        condition: service_completed_successfully
+      worker:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  athens-data:
+  athens-config:
