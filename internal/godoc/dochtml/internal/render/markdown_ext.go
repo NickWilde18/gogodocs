@@ -52,8 +52,11 @@ var (
 	// 冲突），允许内容含其他字符但不能再含反引号。
 	backtickRe = regexp.MustCompile("`([^`\n]+)`")
 
-	// **bold**——不跨行；内容不能含 *，避免吃掉相邻 ** 标记。
-	boldRe = regexp.MustCompile(`\*\*([^*\n]+)\*\*`)
+	// **bold**——容许段内跨真实换行（godoc 段落渲染保留 \n，bold 写多行
+	// 是常见用法），但用 `[^<]` 排除 HTML 标签边界 + 500 字符上限防止贪心
+	// 跨段落（godoc 段间用 </p><p>，含 < 的字符 class 已经能阻止跨段；
+	// 上限是双重防御，避免 corner case 一路匹到下个 ** 把整页吞了）。
+	boldRe = regexp.MustCompile(`\*\*([^*<]{1,500})\*\*`)
 
 	// <pre> 内首行 ```mermaid 起头的围栏块——godoc 把 fenced 当 raw text 渲染
 	// 进 <pre>，我们补上 <code class="language-mermaid">。`(?s)` 让 . 匹配换行。
