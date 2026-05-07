@@ -25,7 +25,7 @@ FROM debian:bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/NickWilde18/pkgsitex"
 LABEL org.opencontainers.image.description="Self-hosted pkgsite fork (worker/frontend/init in one image)"
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates git && \
+    apt-get install -y --no-install-recommends ca-certificates git wget && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /bin/worker /usr/local/bin/worker
