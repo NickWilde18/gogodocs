@@ -172,7 +172,7 @@ func writeNetrc(path, token string) error {
 	return os.WriteFile(path, []byte(content), 0o600)
 }
 
-// waitWorkerReady 轮询 worker /healthcheck 端点直到就绪或 ctx 超时。
+// waitWorkerReady 轮询 worker /healthz 端点直到就绪或 ctx 超时。
 //
 // 间隔 2 秒；总超时由 caller ctx 控制。docker-compose 的 healthcheck 应该
 // 已让 worker 在 init 启动前就 ready，但这层兜底防容器启动顺序 race。
@@ -180,7 +180,7 @@ func waitWorkerReady(ctx context.Context, workerURL string) error {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	for {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, workerURL+"/healthcheck", nil)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, workerURL+"/healthz", nil)
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			io.Copy(io.Discard, resp.Body)
