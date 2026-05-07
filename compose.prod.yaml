@@ -99,7 +99,7 @@ services:
       athens:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/healthcheck"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/healthz"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -134,7 +134,7 @@ services:
 
   # init 一次性跑：写 athens netrc + 等 worker 起来 + enqueue 全 module。
   # athens 依赖 init（要 netrc 文件），所以 init 要先于 athens 跑——但
-  # init 又要等 worker /healthcheck —— worker 又依赖 athens —— 循环依赖。
+  # init 又要等 worker /healthz —— worker 又依赖 athens —— 循环依赖。
   #
   # 解法：分两阶段——
   #   阶段 1（service netrc-writer）：仅写 netrc 然后退出，依赖 0。athens 等它
