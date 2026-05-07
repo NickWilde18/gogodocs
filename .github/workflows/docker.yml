@@ -54,6 +54,11 @@ jobs:
             type=raw,value=fork-main,enable=${{ github.ref == 'refs/heads/fork/main' }}
             type=sha,format=short,prefix=
 
+      - name: Set up QEMU
+        # 跨 arch build 需要 binfmt——QEMU emulation 让 amd64 runner 能交叉
+        # 编出 arm64 二进制（buildx + Go 交叉编译速度差距很小）
+        uses: docker/setup-qemu-action@v3
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -63,6 +68,9 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # 多 arch：macOS arm64 / 国产 CPU / 树莓派都能直接 docker pull
+          # native，省 Rosetta emulation；amd64 K8s prod 节点也照样 native
+          platforms: linux/amd64,linux/arm64
           # 用 GitHub Actions cache 加速重 build
           cache-from: type=gha
           cache-to: type=gha,mode=max
