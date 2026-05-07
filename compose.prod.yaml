@@ -115,16 +115,14 @@ services:
       GO_DISCOVERY_DATABASE_PASSWORD: pkgsitex
       GO_DISCOVERY_DATABASE_NAME: discovery_db
       PORT: "8080"
-      # fork 加的：base-path / show-unexported / license permissive 都通过 env
-      # 或 cmd flag——cmd/frontend 暂未支持这些 flag，需要 fork patch 让它读
-      # 同 cmd/pkgsite 的 flag。L2 暂走 cmd/pkgsite 行为兼容（待 L4-bis 补
-      # cmd/frontend flag 支持，见 docs/PROD_DEPLOY.md TODO）。
-      PKGSITEX_BASE_PATH: "/pkgsitex"
-      PKGSITEX_SHOW_UNEXPORTED: "true"
-      PKGSITEX_LICENSE_PERMISSIVE: "true"
     command:
       - "-static=/app/static"
       - "-third_party=/app/third_party"
+      # fork 加的子路径 / unexported / license——直接走 cmd/frontend flag。
+      # license 用上游已有 -bypass_license_check 不再单独包装。
+      - "-base-path=/pkgsitex"
+      - "-show-unexported"
+      - "-bypass_license_check"
     ports:
       - "8089:8080"
     depends_on:
