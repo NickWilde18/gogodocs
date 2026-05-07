@@ -370,8 +370,27 @@ func NewDetectorFS(modulePath, version string, fsys fs.FS, logf func(string, ...
 	return d
 }
 
+// Permissive 是 fork 加的全局开关——cmd/worker / cmd/frontend prod 模式下让
+// pkgsite 内部所有 license 检查直接通过，无视 SPDX 类型 / 文件内容。
+//
+// 用途：内网部署给私有 / 闭源 repo 浏览 godoc，常见场景下 repo 没有 LICENSE
+// 文件、或者只有 "All rights reserved" 之类的 proprietary 声明——上游
+// pkg.go.dev 默认会拒绝渲染这种 module（"this package is not redistributable"
+// page）。本 fork 在 internal 部署时显式接受非 OSS license。
+//
+// 默认 false 跟上游零差异。配置文件 `licenses.permissive: true`（或 cmd
+// flag `-permissive-licenses`）启用。
+//
+// 安全提示：开启后所有 license metadata 仍被解析 + 展示在 UI；只是不再用
+// "is_redistributable=false" 这个开关锁页面。最终是否对外公开仍由
+// pkgsitex 的网络可达性 + UniAuth 鉴权决定（见 docs/PROD_DEPLOY.md）。
+var Permissive bool
+
 // ModuleIsRedistributable reports whether the given module is redistributable.
 func (d *Detector) ModuleIsRedistributable() bool {
+	if Permissive {
+		return true
+	}
 	return d.moduleRedist
 }
 
@@ -601,6 +620,12 @@ func DetectFile(contents []byte, filename string, logf func(string, ...any)) ([]
 // All the licenses we see that are relevant must be redistributable, and
 // we must see at least one such license.
 func Redistributable(licenseTypes []string) bool {
+	if Permissive {
+		// fork：prod 内网部署模式下接受任意 license 类型（含 unknown /
+		// proprietary / "all rights reserved" 这种 fork 关心的场景）。
+		// 同时也接受**空 license 列表**（很多内部 repo 根本没 LICENSE 文件）。
+		return true
+	}
 	sawRedist := false
 	for _, t := range licenseTypes {
 		if ignorableLicenseTypes[t] {
