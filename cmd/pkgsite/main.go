@@ -113,6 +113,9 @@ func main() {
 	// 全局开关——godoc.DocPackage 读包级 var 决定是否传 doc.AllDecls。
 	// 单进程 pkgsite 一种行为，没必要加到 ServerConfig 里再透传一层。
 	godoc.IncludeUnexported = *showUnexported
+	// view source / file link 在 local mode 走 "/files/..." 路径——base path
+	// 挂子路径时 godoc.renderOptions 的 localPrefix 闭包读这个 var 加前缀。
+	godoc.BasePath = *basePath
 
 	// versions 包级 BasePath——pkgsite 内部 ConstructUnitURL 是所有 unit /
 	// package / module 详情页链接的核心 URL builder（subdir 列表、search

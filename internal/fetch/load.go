@@ -303,6 +303,13 @@ func loadPackageForBuildContext(ctx context.Context, files map[string][]byte, in
 		if modulePath == stdlib.ModulePath && innerPath == "builtin" {
 			removeNodes = false
 		}
+		// fork：-show-unexported flag 设全局 godoc.IncludeUnexported=true
+		// 时，AST 阶段也保留未导出 FuncDecl（默认 [removeUnusedASTNodes]
+		// 整个剥掉），后续 [DocPackage] 才有 nodes 可读 + doc.AllDecls 才生效。
+		// 否则 doc.AllDecls 在 AST 已经被剔光的输入上无效。
+		if godoc.IncludeUnexported {
+			removeNodes = false
+		}
 		docPkg.AddFile(pf, removeNodes)
 	}
 
