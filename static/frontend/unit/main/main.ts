@@ -156,7 +156,12 @@ document.querySelectorAll('.js-buildContextSelect').forEach(el => {
   if (!document.querySelector('h4[data-kind]')) return; // 非 godoc 详情页
 
   // method id 形如 "Type.method"，取最后段判私有；其他直接判 id 本身。
+  // 排除 pkg-overview / section-readme / pkg-index 这类页面 anchor——它们是
+  // 小写起头但不是 Go 符号，扫到会误标隐藏。
   const isUnexported = (id: string): boolean => {
+    if (id.startsWith('pkg-') || id.startsWith('section-') || id.startsWith('hdr-')) {
+      return false;
+    }
     const last = id.split('.').pop() ?? id;
     return /^[a-z]/.test(last);
   };
@@ -171,13 +176,16 @@ document.querySelectorAll('.js-buildContextSelect').forEach(el => {
     wrapper?.classList.add('Documentation-unexported');
   });
 
-  // index 列表项也按链接首字母判
+  // index 列表项 + 左侧边栏（go-Tree outline）按链接首字母判。
+  // 侧边栏链接 selector 直接匹配所有 .go-Tree a[href^="#"]——pkg-overview /
+  // section-readme 等导航 anchor 已被 isUnexported 头部排除，不会误标。
   document
     .querySelectorAll<HTMLAnchorElement>(
       '.Documentation-indexFunction a[href^="#"], ' +
         '.Documentation-indexType a[href^="#"], ' +
         '.Documentation-indexTypeFunctions a[href^="#"], ' +
-        '.Documentation-indexTypeMethods a[href^="#"]'
+        '.Documentation-indexTypeMethods a[href^="#"], ' +
+        '.go-Tree a[href^="#"]'
     )
     .forEach(a => {
       if (isUnexported(a.getAttribute('href')!.slice(1))) {
