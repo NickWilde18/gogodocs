@@ -20,7 +20,7 @@ import (
 func TestCheckFrontendTemplates(t *testing.T) {
 	// Perform additional checks on parsed templates.
 	staticFS := template.TrustedFSFromEmbed(static.FS)
-	templates, err := templates.ParsePageTemplates(staticFS)
+	templates, err := templates.ParsePageTemplates(staticFS, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestCheckFrontendTemplates(t *testing.T) {
 var templateFS = template.TrustedFSFromTrustedSource(template.TrustedSourceFromConstant("../../../static"))
 
 func TestCheckDocHTMLTemplates(t *testing.T) {
-	dochtml.LoadTemplates(templateFS)
+	dochtml.LoadTemplates(templateFS, "")
 	for _, tm := range dochtml.Templates() {
 		if err := templatecheck.CheckSafe(tm, dochtml.TemplateData{}); err != nil {
 			t.Fatal(err)

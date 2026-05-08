@@ -129,7 +129,9 @@ func (r *Renderer) formatDocHTML(text string, decl ast.Decl, extractLinks bool) 
 	if len(hscope.headings) > 0 {
 		h = safe.HTMLConcat(ExecuteToHTML(tocTemplate, hscope.headings), h)
 	}
-	return h
+	// fork：在 godoc 渲染产物上加最小 markdown 风格 inline 修饰
+	// （`code` / **bold** / mermaid fence）。详见 [applyDocMarkdownExt]。
+	return applyDocMarkdownExt(h)
 }
 
 // removeLinks removes the "Links" section from doc.

@@ -51,3 +51,7 @@ __diff_output__
 #### Cloud Build Artifacts ####
 _BUILD_TAG
 _ID_TOKEN
+
+#### pkgsitex prod stack 配置 ####
+# .env 含 GITHUB_TOKEN 明文，绝对不能提交
+deploy/prod/.env

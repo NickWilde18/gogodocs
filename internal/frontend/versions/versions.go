@@ -430,16 +430,28 @@ func absoluteTime(date time.Time) string {
 	return date.In(time.UTC).Format("Jan _2, 2006")
 }
 
+// BasePath 是 fork 加的包级 URL 前缀（如 "/pkgsitex"），由 cmd/pkgsite/main.go
+// 在 -base-path flag 处设置。空 = 默认挂根，跟上游零差异。
+//
+// [ConstructUnitURL] 是 pkgsite 内部所有 unit / package / module 详情页链接
+// 的核心 URL builder——unit overview 上的子目录列表 / search 结果 / breadcrumb
+// 各处都通过它生成绝对路径。fork 把整站挂在子路径下时这些路径都得带前缀，
+// 否则点子目录链接会跳出 base path 外 404。
+//
+// 用包级 var 跟 [godoc.IncludeUnexported] 同模式——pkgsite 单进程一种行为，
+// 不必 ConstructUnitURL 加新参数让上百个 caller 都改一遍。
+var BasePath string
+
 // ConstructUnitURL returns a URL path that refers to the given unit at the requested
 // version. If requestedVersion is "latest", then the resulting path has no
 // version; otherwise, it has requestedVersion.
 func ConstructUnitURL(fullPath, modulePath, requestedVersion string) string {
 	if requestedVersion == version.Latest {
-		return "/" + fullPath
+		return BasePath + "/" + fullPath
 	}
 	v := LinkVersion(modulePath, requestedVersion, requestedVersion)
 	if fullPath == modulePath || modulePath == stdlib.ModulePath {
-		return fmt.Sprintf("/%s@%s", fullPath, v)
+		return fmt.Sprintf("%s/%s@%s", BasePath, fullPath, v)
 	}
-	return fmt.Sprintf("/%s@%s/%s", modulePath, v, strings.TrimPrefix(fullPath, modulePath+"/"))
+	return fmt.Sprintf("%s/%s@%s/%s", BasePath, modulePath, v, strings.TrimPrefix(fullPath, modulePath+"/"))
 }

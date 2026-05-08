@@ -42,6 +42,27 @@ const (
 // It is a variable for testing.
 var MaxDocumentationHTML = 40 * megabyte
 
+// IncludeUnexported 是 fork 加的全局开关。
+//
+// 默认 false 跟上游一致——godoc 渲染只保留 exported 符号（pkg.go.dev 行为）。
+// pkgsite 的 -show-unexported flag 设为 true 时所有包都按 doc.AllDecls 模式
+// 提取，未导出 type/func/const/var 也展示。这是 fork 私网部署的常见诉求：
+// 对自家代码 godoc 完整展示比 public-only 视图更有用。
+//
+// 用包级 var 而非 per-Package 字段——pkgsite 单进程整站统一一种行为，
+// 简化由 flag → server config → 这里 一条链；无需在 RenderOptions 里多一个字段
+// 透传到 [DocPackage] 调用方（caller 链很深）。
+var IncludeUnexported bool
+
+// BasePath 跟 [IncludeUnexported] 同模式的包级开关——cmd/pkgsite/main.go 设。
+//
+// 用途：cmd/pkgsite local mode 下，[Renderer] 生成 view source / file link 时
+// source.Info 走的是 `/files/{path}` 模板，不带 fork 站点子路径。挂
+// -base-path=/pkgsitex 时这些链接得变成 `/pkgsitex/files/{path}` 才能正确路由
+// 到 file mux。在 [renderOptions] 的 fileLinkFunc / sourceLinkFunc 里识别 local
+// 模式（URL 以 "/files/" 起头）并 prefix。
+var BasePath string
+
 // DocInfo returns information extracted from the package's documentation.
 // This destroys p's AST; do not call any methods of p after it returns.
 func (p *Package) DocInfo(ctx context.Context, innerPath string, sourceInfo *source.Info, modInfo *ModuleInfo) (
@@ -112,7 +133,7 @@ func (p *Package) DocPackage(innerPath string, modInfo *ModuleInfo) (_ *doc.Pack
 
 	// Compute package documentation.
 	var m doc.Mode
-	if noFiltering {
+	if noFiltering || IncludeUnexported {
 		m |= doc.AllDecls
 	}
 	var allGoFiles []*ast.File
@@ -154,6 +175,15 @@ func (p *Package) DocPackage(innerPath string, modInfo *ModuleInfo) (_ *doc.Pack
 // renderOptions returns a RenderOptions for p.
 func (p *Package) renderOptions(innerPath string, sourceInfo *source.Info, modInfo *ModuleInfo,
 	nameToVersion map[string]string, bc internal.BuildContext) dochtml.RenderOptions {
+	// localPrefix wrap：cmd/pkgsite local mode 下 source.Info 模板生成 "/files/..."
+	// 路径，挂 -base-path 时要 prefix 才能路由到 file mux；远程 GitHub URL
+	// （以 https:// 起头）不动。空 BasePath 时也 no-op 跟上游一致。
+	localPrefix := func(u string) string {
+		if BasePath != "" && strings.HasPrefix(u, "/files/") {
+			return BasePath + u
+		}
+		return u
+	}
 	sourceLinkFunc := func(n ast.Node) string {
 		if sourceInfo == nil {
 			return ""
@@ -162,13 +192,13 @@ func (p *Package) renderOptions(innerPath string, sourceInfo *source.Info, modIn
 		if p.Line == 0 { // invalid Position
 			return ""
 		}
-		return sourceInfo.LineURL(path.Join(innerPath, p.Filename), p.Line)
+		return localPrefix(sourceInfo.LineURL(path.Join(innerPath, p.Filename), p.Line))
 	}
 	fileLinkFunc := func(filename string) string {
 		if sourceInfo == nil {
 			return ""
 		}
-		return sourceInfo.FileURL(path.Join(innerPath, filename))
+		return localPrefix(sourceInfo.FileURL(path.Join(innerPath, filename)))
 	}
 
 	return dochtml.RenderOptions{

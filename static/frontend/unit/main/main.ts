@@ -142,3 +142,87 @@ document.querySelectorAll('.js-buildContextSelect').forEach(el => {
     window.location.search = `?GOOS=${(e.target as HTMLSelectElement).value}`;
   });
 });
+
+/**
+ * fork：unexported（私有）符号 toggle。
+ *
+ * 背景：pkgsite -show-unexported flag 让 godoc 把私有 type/func/method
+ * 都渲到 page。但读者大多数时候只关心 public API，私有的太多反而拖慢
+ * 阅读。这层在 client 端按 id 首字母大小写自动 hide 私有 declaration +
+ * index 链接，再注入一个 toggle button 一键切显示。状态用 localStorage
+ * 记下，跨页保留。
+ */
+(() => {
+  if (!document.querySelector('h4[data-kind]')) return; // 非 godoc 详情页
+
+  // method id 形如 "Type.method"，取最后段判私有；其他直接判 id 本身。
+  // 排除 pkg-overview / section-readme / pkg-index 这类页面 anchor——它们是
+  // 小写起头但不是 Go 符号，扫到会误标隐藏。
+  const isUnexported = (id: string): boolean => {
+    if (id.startsWith('pkg-') || id.startsWith('section-') || id.startsWith('hdr-')) {
+      return false;
+    }
+    const last = id.split('.').pop() ?? id;
+    return /^[a-z]/.test(last);
+  };
+
+  // 标 declaration wrapper：func 包在 .Documentation-function；type / method
+  // 包在 .Documentation-type / .Documentation-typeFunc / .Documentation-typeMethod。
+  document.querySelectorAll<HTMLElement>('h4[data-kind][id]').forEach(h => {
+    if (!isUnexported(h.id)) return;
+    const wrapper = h.closest(
+      '.Documentation-function, .Documentation-type, .Documentation-typeFunc, .Documentation-typeMethod'
+    );
+    wrapper?.classList.add('Documentation-unexported');
+  });
+
+  // index 列表项 + 左侧边栏（go-Tree outline）按链接首字母判。
+  // 侧边栏链接 selector 直接匹配所有 .go-Tree a[href^="#"]——pkg-overview /
+  // section-readme 等导航 anchor 已被 isUnexported 头部排除，不会误标。
+  document
+    .querySelectorAll<HTMLAnchorElement>(
+      '.Documentation-indexFunction a[href^="#"], ' +
+        '.Documentation-indexType a[href^="#"], ' +
+        '.Documentation-indexTypeFunctions a[href^="#"], ' +
+        '.Documentation-indexTypeMethods a[href^="#"], ' +
+        '.go-Tree a[href^="#"]'
+    )
+    .forEach(a => {
+      if (isUnexported(a.getAttribute('href')!.slice(1))) {
+        a.closest('li')?.classList.add('Documentation-unexported');
+      }
+    });
+
+  // 注入 CSS（不动 main.css build pipeline，避免增量改 esbuild 输出）
+  const style = document.createElement('style');
+  style.textContent =
+    'body:not(.show-unexported) .Documentation-unexported{display:none}';
+  document.head.appendChild(style);
+
+  // 注入 toggle button——放 Index 标题旁边最显眼，跟 "Show internal" 同位
+  const indexHeader = document.querySelector<HTMLHeadingElement>('#pkg-index');
+  if (!indexHeader) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'go-Button go-Button--inline';
+  btn.style.marginLeft = '0.75rem';
+  btn.style.fontSize = '0.875rem';
+  btn.style.verticalAlign = 'middle';
+
+  const STORE_KEY = 'pkgsitex:showUnexported';
+  const apply = (show: boolean) => {
+    document.body.classList.toggle('show-unexported', show);
+    btn.textContent = show ? 'Hide unexported' : 'Show unexported';
+    try {
+      localStorage.setItem(STORE_KEY, show ? '1' : '0');
+    } catch {
+      /* localStorage 不可用（隐私模式 / 文件协议）时忽略，只丢失跨页记忆 */
+    }
+  };
+
+  apply(localStorage.getItem(STORE_KEY) === '1');
+  btn.addEventListener('click', () =>
+    apply(!document.body.classList.contains('show-unexported'))
+  );
+  indexHeader.appendChild(btn);
+})();

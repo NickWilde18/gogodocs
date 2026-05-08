@@ -1,0 +1,76 @@
+name: Build & push docker image
+
+# 推 fork/main 时自动 build + push docker.io/nickwilde18/pkgsitex 单 image
+# 含 worker / frontend / pkgsitex-init 三 entrypoint。
+#
+# Tag 策略：
+#   - fork-main：fork/main 分支 HEAD 永远指向最新（compose.prod.yaml 默认拉这个）
+#   - <git-sha>：每次 push 一份 immutable，方便 rollback
+#
+# 触发条件：fork/main 推送、PR 推送（PR 只 build 不 push 验证 Dockerfile）。
+#
+# 用户操作：
+#   1) https://hub.docker.com/settings/security 生成 access token
+#   2) GitHub repo Settings → Secrets and variables → Actions 加两个 secret：
+#        DOCKERHUB_USERNAME = nickwilde18
+#        DOCKERHUB_TOKEN    = <docker.io access token>
+#   3) push fork/main 触发本 workflow
+
+on:
+  push:
+    branches:
+      - fork/main
+  pull_request:
+    branches:
+      - master
+      - fork/main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        # PR 触发时跳过 login（forks PR 拿不到 secret，build 跑通验证 Dockerfile 即可）
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: nickwilde18/pkgsitex
+          # tags：fork-main 浮动指向最新 / <sha> 不可变
+          tags: |
+            type=raw,value=fork-main,enable=${{ github.ref == 'refs/heads/fork/main' }}
+            type=sha,format=short,prefix=
+
+      - name: Set up QEMU
+        # 跨 arch build 需要 binfmt——QEMU emulation 让 amd64 runner 能交叉
+        # 编出 arm64 二进制（buildx + Go 交叉编译速度差距很小）
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/prod/Dockerfile
+          # PR 时只 build 不 push（验证 Dockerfile 不坏）
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 多 arch：macOS arm64 / 国产 CPU / 树莓派都能直接 docker pull
+          # native，省 Rosetta emulation；amd64 K8s prod 节点也照样 native
+          platforms: linux/amd64,linux/arm64
+          # 用 GitHub Actions cache 加速重 build
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

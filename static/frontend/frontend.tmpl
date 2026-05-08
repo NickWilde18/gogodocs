@@ -5,7 +5,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en" data-layout="{{if .UseResponsiveLayout}}responsive{{end}}" data-local="{{if .LocalMode}}true{{end}}">
+<html lang="en" data-base-path="{{basepath}}" data-layout="{{if .UseResponsiveLayout}}responsive{{end}}" data-local="{{if .LocalMode}}true{{end}}">
   <head>
     <!-- This will capture unhandled errors during page load for reporting later. -->
     <script>
@@ -27,11 +27,11 @@
     {{end}}
     {{block "robots" .}}{{end}}
     <meta class="js-gtmID" data-gtmid="{{.GoogleTagManagerID}}">
-    <link rel="shortcut icon" href="/static/shared/icon/favicon.ico">
+    <link rel="shortcut icon" href="{{abs `/static/shared/icon/favicon.ico`}}">
     {{block "canonical" .}}{{end}}
-    <link href="/static/frontend/frontend.min.css?version={{.AppVersionLabel}}" rel="stylesheet">
+    <link href="{{asset `/static/frontend/frontend.min.css` .AppVersionLabel}}" rel="stylesheet">
     {{if not .LocalMode}}
-    <link rel="search" type="application/opensearchdescription+xml" href="/opensearch.xml" title="Go Packages">
+    <link rel="search" type="application/opensearchdescription+xml" href="{{abs `/opensearch.xml`}}" title="Go Packages">
     {{end}}
     {{block "title" .}}
       <title>{{if .HTMLTitle}}{{.HTMLTitle}} - {{end}}Go Packages</title>
@@ -52,8 +52,25 @@
         }
         document.head.appendChild(s);
       }
-      loadScript("/third_party/dialog-polyfill/dialog-polyfill.js", false)
-      loadScript("/static/frontend/frontend.js");
+      // base path 从 <html data-base-path="..."> 读——safehtml/template 在
+      // script 上下文要求 safehtml.Script 类型，普通 template helper 通不过
+      // 校验。runtime 从 dataset 读 attr 等价。
+      var __basePath = document.documentElement.dataset.basePath || "";
+      loadScript(__basePath + "/third_party/dialog-polyfill/dialog-polyfill.js", false)
+      loadScript(__basePath + "/static/frontend/frontend.js");
+    </script>
+    <!-- fork: fenced mermaid code-block lazy render. Only loads mermaid
+         (~500KB) when the page actually contains a code.language-mermaid
+         element; README / godoc pages without diagrams pay zero cost.
+         Source via jsdelivr CDN; for offline / strict-CSP intranet
+         deploys, swap with a local copy under third_party/mermaid. -->
+    <script type="module">
+      if (document.querySelector('code.language-mermaid')) {
+        import('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs').then(({ default: mermaid }) => {
+          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+          mermaid.run({ querySelector: 'code.language-mermaid' });
+        }).catch(err => console.error('mermaid load failed:', err));
+      }
     </script>
     {{template "header" .}}
     {{template "main" .}}

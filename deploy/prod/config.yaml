@@ -1,0 +1,46 @@
+# pkgsitex prod 配置——cmd/pkgsitex-init 启动时读，决定要监控的 module 列表。
+#
+# 编辑此文件后跑：
+#   docker compose -f compose.prod.yaml --env-file deploy/prod/.env \
+#       run --rm init --mode=refresh
+# 让 init 容器重新枚举 tag + enqueue 给 worker。
+
+github:
+  # ${GITHUB_TOKEN} 在容器里走 env var 注入，不要在这里写明文 PAT
+  token: ${GITHUB_TOKEN}
+
+# Worker 内部 service URL——docker-compose 默认 service 名是 worker，端口 8000
+worker:
+  url: http://worker:8000
+
+athens:
+  # init 写 netrc 给 athens 内部 git 使用
+  netrcPath: /etc/athens/.netrc
+
+# 要监控的 Go module 列表。每条目支持：
+#   path:      Go module path（pkg.go.dev URL 段）—— 必填
+#   versions:  "latest"（默认，仅拉默认分支）/ "all-tags"（git ls-remote 拿
+#              所有 tag 全部 enqueue，团队希望看每个 release 文档时用）
+#   repoUrl:   可选——module path 跟 git repo URL 不一致时（如 monorepo 子模块）
+#
+# 加新 module：append 一行 + 跑 init --mode=refresh。删 module 不需要从 DB 清，
+# 后续不再 fetch 自然过期。
+modules:
+  - path: github.com/CUHKSZ-ITSO-Dev/Chat
+    versions: all-tags
+
+  - path: github.com/CUHKSZ-ITSO-Dev/Doubao-Speech-Service
+    versions: all-tags
+
+  # UniAuth 是 monorepo 含两个 Go module（uniauth-gf / ittools_sync）。
+  # path 是 module path（含子目录），repoUrl 指 git repo 不含子目录。
+  - path: github.com/CUHKSZ-ITSO-Dev/UniAuth/uniauth-gf
+    versions: all-tags
+    repoUrl: github.com/CUHKSZ-ITSO-Dev/UniAuth
+
+  - path: github.com/CUHKSZ-ITSO-Dev/UniAuth/ittools_sync
+    versions: all-tags
+    repoUrl: github.com/CUHKSZ-ITSO-Dev/UniAuth
+
+  - path: github.com/CUHKSZ-ITSO-Dev/open-platform
+    versions: all-tags

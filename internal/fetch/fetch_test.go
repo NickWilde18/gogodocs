@@ -40,7 +40,7 @@ var (
 type fetchFunc func(t *testing.T, withLicenseDetector bool, ctx context.Context, mod *proxytest.Module, fetchVersion string) (*FetchResult, *licenses.Detector)
 
 func TestMain(m *testing.M) {
-	dochtml.LoadTemplates(templateFS)
+	dochtml.LoadTemplates(templateFS, "")
 	testModules = proxytest.LoadTestModules("../proxy/testdata")
 	licenses.OmitExceptions = true
 	os.Exit(m.Run())

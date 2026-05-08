@@ -8,8 +8,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/profiler"
@@ -26,6 +28,8 @@ import (
 	"golang.org/x/pkgsite/internal/fetchdatasource"
 	"golang.org/x/pkgsite/internal/frontend"
 	"golang.org/x/pkgsite/internal/frontend/fetchserver"
+	"golang.org/x/pkgsite/internal/frontend/versions"
+	"golang.org/x/pkgsite/internal/godoc"
 	"golang.org/x/pkgsite/internal/log"
 	"golang.org/x/pkgsite/internal/middleware"
 	"golang.org/x/pkgsite/internal/middleware/timeout"
@@ -56,11 +60,45 @@ var (
 	bypassLicenseCheck = flag.Bool("bypass_license_check", false, "display all information, even for non-redistributable paths")
 	hostAddr           = flag.String("host", "localhost:8080", "Host address for the server")
 	queueType          = flag.String("queue", "inmemory", `queue implementation when not on GCP: "inmemory" or "postgres"`)
+	// fork: 把 frontend 整体挂在 URL 子路径下（如 -base-path=/pkgsitex），
+	// 跟 cmd/pkgsite local mode 同款语义。空 = 挂根（上游默认行为）。
+	basePath = flag.String("base-path", "", "URL prefix to mount the site under (e.g. /pkgsitex). Must start with / and not end with /.")
+	// fork: godoc 渲染保留未导出符号（doc.AllDecls 模式），跟 cmd/pkgsite 同款。
+	// 内网部署常见诉求——自家代码完整展示比 public-only 视图更有用。
+	showUnexported = flag.Bool("show-unexported", false, "Render documentation including unexported declarations (doc.AllDecls mode).")
 )
+
+// validateBasePath 强制 base-path 形如 "/foo" 或空——空表示挂根。
+// 不允许尾部斜杠（mux pattern 拼起来会双斜杠引发匹配失败）。复制自
+// cmd/pkgsite/main.go——两个 cmd 各自校验避免引入 cmd/internal 共享层。
+func validateBasePath(p string) error {
+	if p == "" {
+		return nil
+	}
+	if !strings.HasPrefix(p, "/") {
+		return fmt.Errorf("-base-path %q must start with /", p)
+	}
+	if strings.HasSuffix(p, "/") {
+		return fmt.Errorf("-base-path %q must not end with /", p)
+	}
+	return nil
+}
 
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	if err := validateBasePath(*basePath); err != nil {
+		log.Fatalf(ctx, "%v", err)
+	}
+	// 全局开关——godoc.DocPackage / dochtml 模板读包级 var 决定 unexported
+	// 显隐 + URL 子路径前缀。同 cmd/pkgsite 一种行为，没必要加 ServerConfig 字段层层透传。
+	godoc.IncludeUnexported = *showUnexported
+	godoc.BasePath = *basePath
+	// versions 包的 ConstructUnitURL 是所有 unit / package / module 详情页链接
+	// 的核心 URL builder——空 BasePath 时 no-op 跟上游一致。
+	versions.BasePath = *basePath
+
 	cfg, err := serverconfig.Init(ctx)
 	if err != nil {
 		log.Fatal(ctx, err)
@@ -201,6 +239,7 @@ func main() {
 		VulndbClient:          vc,
 		HTTPClient:            &http.Client{Transport: new(ochttp.Transport)},
 		RecordCodeWikiMetrics: dcensus.RecordClick,
+		BasePath:              *basePath,
 	})
 	if err != nil {
 		log.Fatalf(ctx, "frontend.NewServer: %v", err)
