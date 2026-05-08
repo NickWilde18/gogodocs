@@ -37,17 +37,6 @@ pkgsite -base-path=/pkgsitex -show-unexported -http=:8089 ~/Repo/Chat ...
 
 The first `go run` fetches `esbuild` / `safehtml` deps via GOPROXY (~30s); subsequent runs are instant.
 
-## docker-compose start (no Go toolchain required)
-
-The repo root has [`compose.yaml`](compose.yaml):
-
-```sh
-docker compose up -d
-open http://localhost:8089/pkgsitex/
-```
-
-The first build pulls the `golang:1.25` image (~700 MB) and bundles esbuild — about 3-5 minutes. After editing `fork/main`, `docker compose build pkgsitex` is a fast incremental rebuild.
-
 ## Configuration
 
 | flag | purpose | default |
@@ -63,11 +52,9 @@ Full flags: `go run ./cmd/pkgsite -h`.
 
 ## Adding / removing repos
 
-**Local binary**: edit the path list at the end of the command.
+Edit the path list at the end of the `go run` / `pkgsite` command.
 
-**docker-compose**: edit [`compose.yaml`](compose.yaml) — add a `volumes:` entry `../<name>:/repos/<name>:ro` plus a `command:` arg `/repos/<name>`.
-
-Convention: clone internal repos to `~/Repo/<name>`. UniAuth is a monorepo with two Go modules (`uniauth-gf/` + `ittools_sync/`) — mount each separately; pkgsite doesn't auto-discover nested modules.
+Convention: clone internal repos to `~/Repo/<name>`. UniAuth is a monorepo with two Go modules (`uniauth-gf/` + `ittools_sync/`) — list each separately; pkgsite doesn't auto-discover nested modules.
 
 ## Browse experience
 
@@ -142,10 +129,9 @@ Patch history: PR [#2](https://github.com/NickWilde18/pkgsitex/pull/2).
 
 | Symptom | Diagnosis |
 |---|---|
-| `go run` fails to fetch deps | `GOPROXY=https://goproxy.cn,direct go run ...` (the Dockerfile defaults to goproxy.cn) |
-| docker `pull access denied` | use `docker compose build pkgsitex` to build locally instead of pulling |
-| `/pkgsitex/...` static asset 404 | you edited `static/`/templates without rebuilding: run `go run ./devtools/cmd/static` to regenerate the bundle, or `docker compose build pkgsitex` |
-| module resolution timeout | use the company Athens: `docker compose build --build-arg GOPROXY=https://athens.corp.com pkgsitex`, or set `GOPROXY=...` locally |
+| `go run` fails to fetch deps | use a closer GOPROXY: `GOPROXY=https://goproxy.cn,direct go run ...` |
+| `/pkgsitex/...` static asset 404 | you edited `static/`/templates without rebuilding: run `go run ./devtools/cmd/static` to regenerate the bundle |
+| module resolution timeout | point GOPROXY at the company Athens: `export GOPROXY=https://athens.corp.com,direct` |
 | mermaid doesn't render | check the browser console for `mermaid load failed` — your network blocks jsdelivr CDN; vendor mermaid locally (`third_party/mermaid/` pending) |
 | Sidebar / Index has no "Show unexported" button | localStorage may have an old toggle key (`gogodocs:showUnexported`); click the button once to reset to the new key |
 

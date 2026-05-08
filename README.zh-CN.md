@@ -37,17 +37,6 @@ pkgsite -base-path=/pkgsitex -show-unexported -http=:8089 ~/Repo/Chat ...
 
 首次 `go run` 拉 esbuild / safehtml 等 dep 走 GOPROXY，约 30 秒，后续秒启。
 
-## docker-compose 启动（备选，给没 Go toolchain 的同事）
-
-仓库根有 [`compose.yaml`](compose.yaml)：
-
-```sh
-docker compose up -d
-open http://localhost:8089/pkgsitex/
-```
-
-首次 build 拉 `golang:1.25` image（~700 MB） + esbuild bundle，约 3-5 分钟。改 `fork/main` 后 `docker compose build pkgsitex` 增量很快。
-
 ## 配置选项
 
 | flag | 用途 | 默认 |
@@ -63,11 +52,9 @@ open http://localhost:8089/pkgsitex/
 
 ## 增 / 减仓库
 
-**本地 binary**：直接改 command 末尾 path 列表。
+直接改 `go run` / `pkgsite` 命令末尾的 path 列表。
 
-**docker-compose**：编辑 [`compose.yaml`](compose.yaml) `volumes:` 加一行 `../<name>:/repos/<name>:ro`，`command:` 末尾加 `/repos/<name>`。
-
-约定：内部仓库都 clone 在 `~/Repo/<name>`。UniAuth 是 monorepo 含 `uniauth-gf/` + `ittools_sync/` 两个 Go module，各 mount 一份——pkgsite 不支持 nested module 自动发现。
+约定：内部仓库都 clone 在 `~/Repo/<name>`。UniAuth 是 monorepo 含 `uniauth-gf/` + `ittools_sync/` 两个 Go module，各列一份——pkgsite 不支持 nested module 自动发现。
 
 ## 浏览体验
 
@@ -141,10 +128,9 @@ open http://localhost:8089/pkgsitex/
 
 | 现象 | 排查 |
 |---|---|
-| `go run` 拉 dep 失败 | `GOPROXY=https://goproxy.cn,direct go run ...`（Dockerfile 默认 goproxy.cn） |
-| docker `pull access denied` | 用 `docker compose build pkgsitex` 走本地 build，不要拉 image |
-| 浏览 `/pkgsitex/...` 静态资源 404 | 改了 `static/`/模板后没重 build：`go run ./devtools/cmd/static` 重生 bundle，或 docker 路径 `docker compose build pkgsitex` |
-| 解析 module 超时 | 走公司 Athens：`docker compose build --build-arg GOPROXY=https://athens.corp.com pkgsitex` 或本地 `export GOPROXY=...` |
+| `go run` 拉 dep 失败 | 走更近的 GOPROXY：`GOPROXY=https://goproxy.cn,direct go run ...` |
+| 浏览 `/pkgsitex/...` 静态资源 404 | 改了 `static/`/模板后没重 build：`go run ./devtools/cmd/static` 重生 bundle |
+| 解析 module 超时 | 把 GOPROXY 指向公司 Athens：`export GOPROXY=https://athens.corp.com,direct` |
 | mermaid 不渲染 | 浏览器 console 看 `mermaid load failed`——内网拦了 jsdelivr CDN，需要本地 host mermaid（`third_party/mermaid/` 待 vendor） |
 | Sidebar / Index 没"Show unexported"按钮 | 可能 localStorage 之前 toggle key 是老名字（`gogodocs:showUnexported`），点一次按钮即可重置成新 key |
 
