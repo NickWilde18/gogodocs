@@ -1,19 +1,21 @@
 # pkgsitex
 
-[`golang/pkgsite`](https://github.com/golang/pkgsite) 的 fork，加了内网部署 / 私有仓库浏览常用能力——`-base-path` 子路径、未导出符号显示 + 浏览器 toggle、godoc 注释 markdown 扩展（` `code` ` / `**bold**` / mermaid 围栏）、view source 走本地 file mux 等。
+> English ｜ [简体中文](README.zh-CN.md)
 
-> **Fork 维护策略**：master 永远 = upstream master，patches 落在 long-lived branch [`fork/main`](https://github.com/NickWilde18/pkgsitex/tree/fork/main)。GitHub "Sync fork" 永远 fast-forward 0 conflict。所有用法 / 启动 / patch 详见 fork/main 分支的 README。
+A fork of [`golang/pkgsite`](https://github.com/golang/pkgsite) tuned for self-hosting Go module docs in private/internal environments. Adds URL subpath mounting, godoc comment markdown (mermaid / inline code / bold), unexported symbol display + browser toggle, view source via locally mounted files, and config-driven private GitHub repo support.
+
+> **Fork strategy**: master always equals upstream master; all patches live on the long-lived [`fork/main`](https://github.com/NickWilde18/pkgsitex/tree/fork/main) branch. GitHub "Sync fork" stays fast-forward, zero conflict. All usage / setup / patch docs live on `fork/main` — including this README.
 
 ```sh
 git clone https://github.com/NickWilde18/pkgsitex.git ~/Repo/pkgsitex
 cd ~/Repo/pkgsitex
-git checkout fork/main          # 切到 fork patches 分支
-cat README.md                   # ← 你看到的 fork 说明
+git checkout fork/main          # switch to the fork patches branch
+cat README.md                   # ← what you're reading
 ```
 
-## 快速启动（本地，秒级）
+## Quick start (local, sub-second)
 
-前置：Go 1.24+，本地把要浏览的 repo clone 到 `~/Repo/<name>`。
+Requires Go 1.25+. Clone the repos you want to browse to `~/Repo/<name>`.
 
 ```sh
 go run ./cmd/pkgsite -base-path=/pkgsitex -show-unexported -http=:8089 \
@@ -26,131 +28,132 @@ go run ./cmd/pkgsite -base-path=/pkgsitex -show-unexported -http=:8089 \
 open http://localhost:8089/pkgsitex/
 ```
 
-或者编译一次本地复用：
+Or compile once and reuse locally:
 
 ```sh
 go install ./cmd/pkgsite
 pkgsite -base-path=/pkgsitex -show-unexported -http=:8089 ~/Repo/Chat ...
 ```
 
-首次 `go run` 拉 esbuild / safehtml 等 dep 走 GOPROXY，约 30 秒，后续秒启。
+The first `go run` fetches `esbuild` / `safehtml` deps via GOPROXY (~30s); subsequent runs are instant.
 
-## docker-compose 启动（备选，给没 Go toolchain 的同事）
+## docker-compose start (no Go toolchain required)
 
-仓库根有 [`compose.yaml`](compose.yaml)：
+The repo root has [`compose.yaml`](compose.yaml):
 
 ```sh
 docker compose up -d
 open http://localhost:8089/pkgsitex/
 ```
 
-首次 build 拉 `golang:1.24` image（~700 MB） + esbuild bundle，约 3-5 分钟。改 `fork/main` 后 `docker compose build pkgsitex` 增量很快。
+The first build pulls the `golang:1.25` image (~700 MB) and bundles esbuild — about 3-5 minutes. After editing `fork/main`, `docker compose build pkgsitex` is a fast incremental rebuild.
 
-## 配置选项
+## Configuration
 
-| flag | 用途 | 默认 |
+| flag | purpose | default |
 |---|---|---|
-| `-base-path=/pkgsitex` | 站点挂子路径下，反代 / 共享域名场景。空 = 挂根（pkg.go.dev 行为） | `""` |
-| `-show-unexported` | godoc 渲染保留未导出符号；浏览器用 toggle 控制显隐 | `false` |
-| `-http=:8089` | 监听端口 | `localhost:8080` |
-| `-cache` | 走 GOMODCACHE | `false` |
-| `-proxy` | 走 GOPROXY 拉远程 module | `false` |
-| `<path>...` | 要索引的 Go module 路径（多个） | `.` |
+| `-base-path=/pkgsitex` | mount the site under a URL subpath (reverse-proxy / shared-domain scenarios). Empty = mount at root (pkg.go.dev behavior) | `""` |
+| `-show-unexported` | godoc renders unexported declarations; the browser uses a toggle to control visibility | `false` |
+| `-http=:8089` | listen address | `localhost:8080` |
+| `-cache` | use GOMODCACHE | `false` |
+| `-proxy` | use GOPROXY to fetch remote modules | `false` |
+| `<path>...` | Go module paths to index (multiple) | `.` |
 
-完整 flag：`go run ./cmd/pkgsite -h`。
+Full flags: `go run ./cmd/pkgsite -h`.
 
-## 增 / 减仓库
+## Adding / removing repos
 
-**本地 binary**：直接改 command 末尾 path 列表。
+**Local binary**: edit the path list at the end of the command.
 
-**docker-compose**：编辑 [`compose.yaml`](compose.yaml) `volumes:` 加一行 `../<name>:/repos/<name>:ro`，`command:` 末尾加 `/repos/<name>`。
+**docker-compose**: edit [`compose.yaml`](compose.yaml) — add a `volumes:` entry `../<name>:/repos/<name>:ro` plus a `command:` arg `/repos/<name>`.
 
-约定：内部仓库都 clone 在 `~/Repo/<name>`。UniAuth 是 monorepo 含 `uniauth-gf/` + `ittools_sync/` 两个 Go module，各 mount 一份——pkgsite 不支持 nested module 自动发现。
+Convention: clone internal repos to `~/Repo/<name>`. UniAuth is a monorepo with two Go modules (`uniauth-gf/` + `ittools_sync/`) — mount each separately; pkgsite doesn't auto-discover nested modules.
 
-## 浏览体验
+## Browse experience
 
-| 元素 | 行为 |
+| Element | Behavior |
 |---|---|
 | URL `/pkgsitex/<module>` | module overview |
-| URL `/pkgsitex/<module>/<sub>` | 子包 |
-| URL `/pkgsitex/<module>@<tag>` | 指定 git tag（local mode 走 module cache，prod worker 模式才有完整 tag 历史） |
-| **Show unexported** button | Index 标题旁，切私有 declaration / 侧边栏 / index 链接的显隐，状态 localStorage 跨页保留 |
-| **Show internal directories** button | 上游内置，切 `internal/` 子目录显示。`data-local=true` 时自动开启 |
-| ` `code` ` / `**bold**` / ` ```mermaid ` | godoc 注释里这些 markdown 写法都渲染（fork 加的 dochtml ext） |
-| **View Source** | 包详情页每个声明右侧链接，跳本地 mount 的源码文件（不依赖 GitHub 在线访问） |
+| URL `/pkgsitex/<module>/<sub>` | subpackage |
+| URL `/pkgsitex/<module>@<tag>` | specific git tag (local mode reads from module cache; the prod worker mode has full tag history) |
+| **Show unexported** button | next to the Index header — toggles visibility of private declarations / sidebar / index links; state persists in localStorage across pages |
+| **Show internal directories** button | upstream feature — toggles `internal/` subdirectory display. Auto-enabled when `data-local=true` |
+| ` `code` ` / `**bold**` / ` ```mermaid ` | godoc comments render these markdown forms (the fork's dochtml ext) |
+| **View Source** | a link next to each declaration on the package detail page — jumps to the locally mounted source file (no GitHub access required) |
 
-## Patch 集合（fork 改了什么）
+## Patches (what the fork changes)
 
-- **`-base-path`**：URL 子路径前缀，所有 mux pattern / template helper / godoc cross-reference / view source 自动 prefix
-- **`-show-unexported`**：让 `internal/fetch/load.go` 在 AST 阶段保留 unexported FuncDecl + `doc.NewFromFiles` 用 `doc.AllDecls`
-- **godoc markdown ext**（`internal/godoc/dochtml/internal/render/markdown_ext.go`）：post-process HTML 加 inline code / bold / mermaid fence 识别
-- **mermaid client lazy-load**（`static/frontend/frontend.tmpl`）：页面有 `code.language-mermaid` 才动态 import mermaid@10
-- **unexported toggle**（`static/frontend/unit/main/main.ts`）：client-side hide + button + localStorage
-- **view source 本地 file mux** + base path 拼接修
-- **multi-repo command line**：直接 list 多个 module path
-- **trailing slash 死循环修**：`internal/frontend/details.go` 在 base path 模式下区分"挂根"和"base path 自身"
+- **`-base-path`**: URL subpath prefix — all mux patterns / template helpers / godoc cross-references / view source links are auto-prefixed
+- **`-show-unexported`**: makes `internal/fetch/load.go` keep unexported `FuncDecl`s during AST processing, and `doc.NewFromFiles` uses `doc.AllDecls`
+- **godoc markdown ext** (`internal/godoc/dochtml/internal/render/markdown_ext.go`): post-processes HTML to recognize inline code / bold / mermaid fences
+- **mermaid client lazy-load** (`static/frontend/frontend.tmpl`): dynamically imports `mermaid@10` only when a page contains `code.language-mermaid`
+- **unexported toggle** (`static/frontend/unit/main/main.ts`): client-side hide + button + localStorage
+- **view source local file mux** + base path prefix fix
+- **multi-repo command line**: list multiple module paths in one command
+- **trailing-slash redirect-loop fix**: `internal/frontend/details.go` distinguishes "mounted at root" from "the base path itself" in base-path mode
+- **prod 4-piece stack**: postgres / athens / worker / frontend `compose.prod.yaml` plus a `cmd/pkgsitex-init` bootstrap container that writes athens netrc + enqueues modules to the worker
 
-## Prod 部署
+## Prod deployment
 
-Prod 模式跟 dev 不同——跟 pkg.go.dev 自身架构一致 4 件套：
+Prod mode differs from dev — it runs the same 4-component architecture as pkg.go.dev itself:
 
-- **postgres**：缓存 module 索引 / 包文档
-- **athens**：GOPROXY 缓存 + 用 GitHub PAT 拉私有 repo
-- **worker**：异步 fetch module 入 DB
-- **frontend**：从 DB 读渲染（端口 8089）
+- **postgres**: caches module index / package docs
+- **athens**: GOPROXY cache + private repo fetch via GitHub PAT
+- **worker**: async fetches modules into the DB
+- **frontend**: renders from the DB (port 8089)
 
-镜像已发布到 docker.io [`nickwilde18/pkgsitex:fork-main`](https://hub.docker.com/r/nickwilde18/pkgsitex)（GitHub Actions 自动 push）。用户不需要 build——拉 image 即用。
+The image is published to docker.io: [`nickwilde18/pkgsitex:fork-main`](https://hub.docker.com/r/nickwilde18/pkgsitex) (multi-arch `linux/amd64` + `linux/arm64`, auto-pushed by GitHub Actions). Users don't need to build — pull the image and run.
 
 ```sh
 git clone https://github.com/NickWilde18/pkgsitex.git
 cd pkgsitex
 git checkout fork/main
 
-# 1) 配 PAT
+# 1) configure PAT
 cp deploy/prod/.env.example deploy/prod/.env
 $EDITOR deploy/prod/.env             # GITHUB_TOKEN=ghp_xxx
 
-# 2) 编辑要监控的 module 列表（内置 5 个 CUHKSZ 内部 repo 示例）
+# 2) edit the module list (5 sample CUHKSZ internal repos pre-listed)
 $EDITOR deploy/prod/config.yaml
 
-# 3) 起 stack（自动拉镜像）
+# 3) start the stack (image is auto-pulled)
 docker compose -f compose.prod.yaml --env-file deploy/prod/.env up -d
 
-# 4) 浏览
+# 4) browse
 open http://localhost:8089/pkgsitex/
 ```
 
-完整运维（加 / 删 module、周期 cron 刷新、故障排查）：[`deploy/prod/README.md`](deploy/prod/README.md)。
+Full ops (add/remove modules, periodic cron refresh, troubleshooting): [`deploy/prod/README.md`](deploy/prod/README.md).
 
-支持 multi-version（git tag 切换）、license permissive（私有 / proprietary 也渲）、配置文件驱动。
+Supports multi-version (git tag switching), license-permissive rendering (proprietary too), and config-driven module list.
 
-## 维护策略
+## Maintenance strategy
 
-- **master 永远 = upstream master**——不 merge `fork/main` 进 master。GitHub "Sync fork" 永远 fast-forward 0 conflict
-- **`fork/main` 是 long-lived patch branch**——所有 fork 改动累积在此分支
-- **月度 rebase**：AI 跑 `git rebase upstream/master` 让 `fork/main` 跟随上游新进展。预测 conflict 集中在：
-  - `internal/frontend/server.go` 的 mux 列表（上游新加路由时）
-  - `static/**/*.tmpl` / `*.ts`（上游改样式 / 加交互时）
-  - 其他 fork 文件（如 `markdown_ext.go`、`base-path/base-path.ts`）几乎不会 conflict（fork 独有）
+- **master always equals upstream master** — never merge `fork/main` into master. GitHub "Sync fork" stays fast-forward, zero conflict
+- **`fork/main` is a long-lived patch branch** — all fork changes accumulate here
+- **Monthly rebase**: AI runs `git rebase upstream/master` so `fork/main` follows new upstream development. Predicted conflict hot spots:
+  - `internal/frontend/server.go` mux list (when upstream adds new routes)
+  - `static/**/*.tmpl` / `*.ts` (when upstream changes styles / interactions)
+  - other fork-only files (e.g. `markdown_ext.go`, `base-path/base-path.ts`) almost never conflict (fork-exclusive)
 
-历次 patch 详见 PR [#2](https://github.com/NickWilde18/pkgsitex/pull/2)。
+Patch history: PR [#2](https://github.com/NickWilde18/pkgsitex/pull/2).
 
-## 故障排查
+## Troubleshooting
 
-| 现象 | 排查 |
+| Symptom | Diagnosis |
 |---|---|
-| `go run` 拉 dep 失败 | `GOPROXY=https://goproxy.cn,direct go run ...`（Dockerfile 默认 goproxy.cn） |
-| docker `pull access denied` | 用 `docker compose build pkgsitex` 走本地 build，不要拉 image |
-| 浏览 `/pkgsitex/...` 静态资源 404 | 改了 `static/`/模板后没重 build：`go run ./devtools/cmd/static` 重生 bundle，或 docker 路径 `docker compose build pkgsitex` |
-| 解析 module 超时 | 走公司 Athens：`docker compose build --build-arg GOPROXY=https://athens.corp.com pkgsitex` 或本地 `export GOPROXY=...` |
-| mermaid 不渲染 | 浏览器 console 看 `mermaid load failed`——内网拦了 jsdelivr CDN，需要本地 host mermaid（`third_party/mermaid/` 待 vendor） |
-| Sidebar / Index 没"Show unexported"按钮 | 可能 localStorage 之前 toggle key 是老名字（`gogodocs:showUnexported`），点一次按钮即可重置成新 key |
+| `go run` fails to fetch deps | `GOPROXY=https://goproxy.cn,direct go run ...` (the Dockerfile defaults to goproxy.cn) |
+| docker `pull access denied` | use `docker compose build pkgsitex` to build locally instead of pulling |
+| `/pkgsitex/...` static asset 404 | you edited `static/`/templates without rebuilding: run `go run ./devtools/cmd/static` to regenerate the bundle, or `docker compose build pkgsitex` |
+| module resolution timeout | use the company Athens: `docker compose build --build-arg GOPROXY=https://athens.corp.com pkgsitex`, or set `GOPROXY=...` locally |
+| mermaid doesn't render | check the browser console for `mermaid load failed` — your network blocks jsdelivr CDN; vendor mermaid locally (`third_party/mermaid/` pending) |
+| Sidebar / Index has no "Show unexported" button | localStorage may have an old toggle key (`gogodocs:showUnexported`); click the button once to reset to the new key |
 
 ---
 
-## 上游 pkgsite
+## Upstream pkgsite
 
-下游 fork 需要跟随上游进展，保留上游 README 内容如下，方便核对功能 / 升级时定位差异。
+A downstream fork has to follow upstream development — keeping the upstream README content below for cross-checking features / locating differences during upgrades.
 
 # golang.org/x/pkgsite
 
@@ -160,19 +163,19 @@ server program.
 
 [![Go Reference](https://pkg.go.dev/badge/golang.org/x/pkgsite.svg)](https://pkg.go.dev/golang.org/x/pkgsite)
 
-完整上游 README：[golang/pkgsite README](https://github.com/golang/pkgsite#readme)。
+Full upstream README: [golang/pkgsite README](https://github.com/golang/pkgsite#readme).
 
 ## Issues
 
-Fork 自身 issues（base-path / markdown ext / etc）：[NickWilde18/pkgsitex/issues](https://github.com/NickWilde18/pkgsitex/issues)。
+Fork issues (base-path / markdown ext / etc): [NickWilde18/pkgsitex/issues](https://github.com/NickWilde18/pkgsitex/issues).
 
-上游 pkgsite issues 报到 [`golang/go`](https://golang.org/issues)，前缀 `x/pkgsite:`，详见上游 README。
+Upstream pkgsite issues go to [`golang/go`](https://golang.org/issues), prefixed `x/pkgsite:` — see the upstream README.
 
 ## Contributing
 
-Fork 内部 PR 投到 `fork/main` 分支（不进 master）。
+Fork-internal PRs target the `fork/main` branch (not master).
 
-上游 pkgsite contribution flow（gerrit code review）见 [Contribution Guide](https://golang.org/doc/contribute.html) + [上游 README contributing 段](https://github.com/golang/pkgsite#contributing)。
+Upstream pkgsite contribution flow (Gerrit code review): [Contribution Guide](https://golang.org/doc/contribute.html) + [upstream README contributing section](https://github.com/golang/pkgsite#contributing).
 
 ## License
 
